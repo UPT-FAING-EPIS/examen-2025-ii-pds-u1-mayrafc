@@ -1,48 +1,33 @@
-# Primero, prueba este workflow simplificado para verificar que funciona
-name: Test Infrastructure Diagram
+name: Generate Infrastructure Diagram
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]  # Cambié de [ main ] a [main] como en tu workflow que funciona
     paths:
       - 'terraform/**'
-      - '.github/workflows/**'  # Agregamos esto para que se ejecute al cambiar el workflow
-  workflow_dispatch:  # Permite ejecutar manualmente
-  pull_request:       # Agregamos esto temporalmente para que aparezca en Actions
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  test-workflow:
+  diagram:
+    name: Generate Infrastructure Diagram  # Agregué name explícito
     runs-on: ubuntu-latest
     
-    permissions:
-      contents: write
+    # Removed permissions section to test - sometimes this can cause issues
     
     steps:
-    - name: Checkout
+    - name: Checkout repo  # Cambié el nombre para que sea más consistente
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Asegura que obtenga todo el historial
-     
-    - name: Debug Info
-      run: |
-        echo "Branch: ${{ github.ref_name }}"
-        echo "Event: ${{ github.event_name }}"
-        echo "Repository: ${{ github.repository }}"
-        echo "Working directory: $(pwd)"
-        ls -la
-        echo "Terraform directory exists: $(test -d terraform && echo 'yes' || echo 'no')"
-        
+      
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-     
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install diagrams
-     
+        
     - name: Generate Infrastructure Diagram
       run: |
         cat > generate_diagram.py << 'EOF'
@@ -50,6 +35,7 @@ jobs:
         from diagrams.onprem.client import Users
         from diagrams.onprem.database import PostgreSQL
         from diagrams.onprem.inmemory import Redis
+        from diagrams.onprem.network import Nginx
         from diagrams.programming.framework import React
         from diagrams.programming.language import Csharp
         from diagrams.saas.cdn import Cloudflare
@@ -90,43 +76,34 @@ jobs:
           ls -la online_exam_platform_infrastructure.png
         else
           echo "❌ Diagram file was not generated"
-          ls -la
           exit 1
         fi
-     
-    - name: Upload diagram artifact
+        
+    - name: Upload diagram
       uses: actions/upload-artifact@v4
       with:
-        name: infrastructure-diagram-${{ github.run_number }}
+        name: infrastructure-diagram
         path: online_exam_platform_infrastructure.png
-        retention-days: 30
-        if-no-files-found: error
-     
-    - name: Setup docs directory and commit
+        retention-days: 90
+        
+    - name: Commit diagram
       run: |
-        echo "Setting up git configuration..."
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
-        echo "Creating docs directory..."
+        # Crear directorio docs si no existe
         mkdir -p docs/
         
-        echo "Copying diagram..."
+        # Copiar el diagrama
         cp online_exam_platform_infrastructure.png docs/
         
-        echo "Current git status:"
-        git status
-        
-        echo "Adding files to git..."
+        # Agregar y commitear solo si hay cambios
         git add docs/online_exam_platform_infrastructure.png
         
-        echo "Checking for changes..."
         if ! git diff --staged --quiet; then
-          echo "Changes detected, committing..."
-          git commit -m "Update infrastructure diagram [skip ci] - Run #${{ github.run_number }}"
-          echo "Pushing changes..."
+          git commit -m "Update infrastructure diagram [skip ci]"
           git push
-          echo "✅ Changes committed and pushed successfully"
+          echo "✅ Diagram updated and committed"
         else
           echo "ℹ️ No changes to commit"
         fi
