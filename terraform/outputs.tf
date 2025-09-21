@@ -3,20 +3,17 @@ output "project_id" {
   value       = railway_project.main.id
 }
 
-output "database_url" {
-  description = "Database connection URL"
-  value       = "postgresql://examuser:exampass123@${railway_service.database.private_domain}:5432/examplatform"
-  sensitive   = true
+output "database_service_id" {
+  description = "Database service ID"
+  value       = railway_service.database.id
 }
 
-output "backend_url" {
-  description = "Backend API URL"
-  # Railway services expose their URLs through the domain attribute
-  value = railway_service.backend.domain
+output "redis_service_id" {
+  description = "Redis service ID"
+  value       = railway_service.redis.id
 }
 
-output "redis_url" {
-  description = "Redis connection URL"
-  value       = "redis://default:redis123@${railway_service.redis.private_domain}:6379"
-  sensitive   = true
+output "backend_service_id" {
+  description = "Backend service ID"
+  value       = railway_service.backend.id
 }
