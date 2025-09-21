@@ -26,5 +26,5 @@ variable "jwt_secret" {
 variable "cors_origins" {
   description = "CORS allowed origins"
   type        = string
-  default     = "https://your-username.github.io"
+  default     = "https://mayrafc.github.io"
 }
