@@ -1,0 +1,78 @@
+name: Generate Infrastructure Diagram
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+
+jobs:
+  diagram:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install diagrams
+
+    - name: Generate Infrastructure Diagram
+      run: |
+        cat > generate_diagram.py << 'EOF'
+        from diagrams import Diagram, Cluster, Edge
+        from diagrams.onprem.client import Users
+        from diagrams.onprem.database import PostgreSQL
+        from diagrams.onprem.inmemory import Redis
+        from diagrams.onprem.network import Nginx
+        from diagrams.programming.framework import React
+        from diagrams.programming.language import Csharp
+        from diagrams.saas.cdn import Cloudflare
+        from diagrams.generic.network import Router
+
+        with Diagram("Online Exam Platform Infrastructure", show=False, direction="TB"):
+            users = Users("Students/Teachers")
+            
+            with Cluster("GitHub Pages"):
+                frontend = React("React Frontend")
+            
+            with Cluster("Railway Platform"):
+                with Cluster("Backend Services"):
+                    api = Csharp(".NET API")
+                
+                with Cluster("Data Layer"):
+                    db = PostgreSQL("PostgreSQL")
+                    cache = Redis("Redis Cache")
+            
+            cdn = Cloudflare("CDN")
+            lb = Router("Load Balancer")
+            
+            users >> cdn >> frontend
+            frontend >> Edge(label="API Calls") >> lb >> api
+            api >> Edge(label="Read/Write") >> db
+            api >> Edge(label="Cache") >> cache
+        EOF
+        python generate_diagram.py
+
+    - name: Upload diagram
+      uses: actions/upload-artifact@v3
+      with:
+        name: infrastructure-diagram
+        path: online_exam_platform_infrastructure.png
+
+    - name: Commit diagram
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        cp online_exam_platform_infrastructure.png docs/
+        git add docs/online_exam_platform_infrastructure.png
+        git diff --staged --quiet || git commit -m "Update infrastructure diagram [skip ci]"
+        git push

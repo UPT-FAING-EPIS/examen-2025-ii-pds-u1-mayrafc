@@ -1,0 +1,163 @@
+name: Generate and Publish Documentation
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Install DocFX
+      run: |
+        dotnet tool install -g docfx
+
+    - name: Generate API Documentation
+      run: |
+        # Create docfx.json configuration
+        cat > docfx.json << 'EOF'
+        {
+          "metadata": [
+            {
+              "src": [
+                {
+                  "files": ["backend/**/*.csproj"],
+                  "exclude": ["backend/**/bin/**", "backend/**/obj/**"]
+                }
+              ],
+              "dest": "api",
+              "disableGitFeatures": false,
+              "disableDefaultFilter": false
+            }
+          ],
+          "build": {
+            "content": [
+              {
+                "files": ["api/**.yml", "api/index.md"]
+              },
+              {
+                "files": ["docs/**.md"]
+              }
+            ],
+            "resource": [
+              {
+                "files": ["docs/images/**"]
+              }
+            ],
+            "overwrite": [
+              {
+                "files": ["apidoc/**.md"],
+                "exclude": ["obj/**", "_site/**"]
+              }
+            ],
+            "dest": "_site",
+            "globalMetadataFiles": [],
+            "fileMetadataFiles": [],
+            "template": ["default"],
+            "postProcessors": [],
+            "markdownEngineName": "markdig",
+            "noLangKeyword": false,
+            "keepFileLink": false,
+            "cleanupCacheHistory": false,
+            "disableGitFeatures": false
+          }
+        }
+        EOF
+
+        # Create index page
+        mkdir -p docs
+        cat > docs/index.md << 'EOF'
+        # Online Exam Platform Documentation
+
+        ## Overview
+        The Online Exam Platform is a web-based application that allows teachers to create and manage exams, and students to take them online.
+
+        ## Architecture
+        - **Backend**: .NET 8 Web API
+        - **Frontend**: React with TypeScript
+        - **Database**: PostgreSQL
+        - **Cache**: Redis
+        - **Hosting**: Railway (Backend), GitHub Pages (Frontend)
+
+        ## Features
+        - User authentication and authorization
+        - Exam creation and management
+        - Multiple question types (Multiple Choice, True/False, Open-ended)
+        - Timed exams
+        - Automatic grading
+        - Results tracking
+
+        ## API Endpoints
+
+        ### Authentication
+        - `POST /api/auth/login` - User login
+        - `POST /api/auth/register` - User registration
+        - `GET /api/auth/me` - Get current user
+
+        ### Exams
+        - `GET /api/exams` - Get user's exams
+        - `GET /api/exams/{id}` - Get exam details
+        - `POST /api/exams` - Create new exam
+        - `PUT /api/exams/{id}` - Update exam
+        - `DELETE /api/exams/{id}` - Delete exam
+
+        ### Questions
+        - `GET /api/questions/exam/{examId}` - Get exam questions
+        - `POST /api/questions` - Create question
+        - `PUT /api/questions/{id}` - Update question
+        - `DELETE /api/questions/{id}` - Delete question
+
+        ### Submissions
+        - `POST /api/submissions` - Start exam
+        - `POST /api/submissions/{id}/answers` - Submit answer
+        - `POST /api/submissions/{id}/submit` - Submit exam
+        - `GET /api/submissions/results/{userId}` - Get results
+
+        ## Development Setup
+
+        1. Clone the repository
+        2. Run `docker-compose up` for local development
+        3. Backend will be available at http://localhost:5000
+        4. Frontend will be available at http://localhost:3000
+
+        ## Deployment
+        The application is deployed using:
+        - Railway for backend and database
+        - GitHub Pages for frontend
+        - GitHub Actions for CI/CD
+        EOF
+
+        # Generate documentation
+        docfx metadata --force
+        docfx build --force
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: '_site'
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2

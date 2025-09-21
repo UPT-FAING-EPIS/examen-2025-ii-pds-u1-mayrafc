@@ -1,0 +1,146 @@
+name: Generate Class Diagram
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**/*.cs'
+  workflow_dispatch:
+
+jobs:
+  class-diagram:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Install PlantUML
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y plantuml
+
+    - name: Generate Class Diagram
+      run: |
+        cat > class_diagram.puml << 'EOF'
+        @startuml ClassDiagram
+
+        package "Core.Entities" {
+            class User {
+                +int Id
+                +string FirstName
+                +string LastName
+                +string Email
+                +string PasswordHash
+                +UserRole Role
+                +DateTime CreatedAt
+                +bool IsActive
+            }
+
+            class Exam {
+                +int Id
+                +string Title
+                +string Description
+                +int TimeLimit
+                +DateTime StartDate
+                +DateTime EndDate
+                +bool IsActive
+                +int CreatedBy
+                +int MaxAttempts
+                +bool ShuffleQuestions
+            }
+
+            class Question {
+                +int Id
+                +int ExamId
+                +string Text
+                +QuestionType Type
+                +int Order
+                +int Points
+                +bool IsRequired
+            }
+
+            class QuestionOption {
+                +int Id
+                +int QuestionId
+                +string Text
+                +bool IsCorrect
+                +int Order
+            }
+
+            class ExamSubmission {
+                +int Id
+                +int ExamId
+                +int UserId
+                +DateTime StartedAt
+                +DateTime? SubmittedAt
+                +int? Score
+                +SubmissionStatus Status
+            }
+
+            class Answer {
+                +int Id
+                +int SubmissionId
+                +int QuestionId
+                +int? SelectedOptionId
+                +string? TextAnswer
+                +bool? IsCorrect
+            }
+
+            enum UserRole {
+                Student
+                Teacher
+                Admin
+            }
+
+            enum QuestionType {
+                MultipleChoice
+                TrueFalse
+                OpenEnded
+            }
+        }
+
+        package "API.Controllers" {
+            class AuthController
+            class ExamsController
+            class QuestionsController
+            class SubmissionsController
+        }
+
+        package "Infrastructure" {
+            class ApplicationDbContext
+            class Repository
+            class ExamRepository
+        }
+
+        User ||--o{ Exam : creates
+        Exam ||--o{ Question : contains
+        Question ||--o{ QuestionOption : has
+        User ||--o{ ExamSubmission : submits
+        ExamSubmission ||--o{ Answer : contains
+        Question ||--o{ Answer : answered
+
+        @enduml
+        EOF
+        plantuml -tpng class_diagram.puml
+
+    - name: Upload class diagram
+      uses: actions/upload-artifact@v3
+      with:
+        name: class-diagram
+        path: class_diagram.png
+
+    - name: Commit diagram
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        mkdir -p docs
+        cp class_diagram.png docs/
+        git add docs/class_diagram.png
+        git diff --staged --quiet || git commit -m "Update class diagram [skip ci]"
+        git push
