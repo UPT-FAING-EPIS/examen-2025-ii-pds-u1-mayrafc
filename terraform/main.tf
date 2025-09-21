@@ -5,6 +5,10 @@ provider "railway" {
 # Crear proyecto Railway
 resource "railway_project" "main" {
   name = var.project_name
+  
+  lifecycle {
+    ignore_changes = [team_id]
+  }
 }
 
 # Servicio PostgreSQL
