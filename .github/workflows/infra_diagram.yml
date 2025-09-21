@@ -11,20 +11,23 @@ jobs:
   diagram:
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: write
+    
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-
+     
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-
+     
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install diagrams
-
+     
     - name: Generate Infrastructure Diagram
       run: |
         cat > generate_diagram.py << 'EOF'
@@ -37,7 +40,7 @@ jobs:
         from diagrams.programming.language import Csharp
         from diagrams.saas.cdn import Cloudflare
         from diagrams.generic.network import Router
-
+        
         with Diagram("Online Exam Platform Infrastructure", show=False, direction="TB"):
             users = Users("Students/Teachers")
             
@@ -61,18 +64,29 @@ jobs:
             api >> Edge(label="Cache") >> cache
         EOF
         python generate_diagram.py
-
+     
     - name: Upload diagram
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: infrastructure-diagram
         path: online_exam_platform_infrastructure.png
-
+        retention-days: 90
+     
     - name: Commit diagram
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
+        
+        # Crear directorio docs si no existe
+        mkdir -p docs/
+        
         cp online_exam_platform_infrastructure.png docs/
         git add docs/online_exam_platform_infrastructure.png
-        git diff --staged --quiet || git commit -m "Update infrastructure diagram [skip ci]"
-        git push
+        
+        # Solo hacer commit si hay cambios
+        if ! git diff --staged --quiet; then
+          git commit -m "Update infrastructure diagram [skip ci]"
+          git push
+        else
+          echo "No changes to commit"
+        fi
